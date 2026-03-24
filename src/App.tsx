@@ -45,6 +45,7 @@ export default function App() {
     try {
       const totalAmount = quantity * RAFFLE_INFO.pricePerNumber;
       const externalId = `rifa_${Date.now()}`;
+      console.log("Sending PIX request to server...");
       const response = await axios.post('/api/pix/receive', {
         amount: totalAmount,
         description: `Rifa Kit de Carnes - ${quantity} Cotas`,
@@ -55,11 +56,18 @@ export default function App() {
         payer_phone: formData.phone
       });
 
+      console.log("Server response received:", response.data);
+
       if (response.data && response.data.pix) {
+        console.log("PIX generated successfully:", response.data.pix.code);
         setPixData({
           qrcode: response.data.pix.code, // 'code' is the PIX string
           copy_paste: response.data.pix.code
         });
+      } else {
+        console.error("Invalid response structure from server:", response.data);
+        alert("Resposta inválida do servidor. Verifique os logs.");
+      }
 
         // Save to Supabase if configured
         if (isSupabaseConfigured) {
@@ -84,9 +92,10 @@ export default function App() {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Payment error:", error);
-      alert("Erro ao gerar PIX. Tente novamente.");
+      const errorMsg = error.response?.data?.details || error.response?.data?.error || "Erro ao gerar PIX. Tente novamente.";
+      alert(errorMsg);
     } finally {
       setIsLoading(false);
     }

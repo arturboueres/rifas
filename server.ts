@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
@@ -7,6 +6,11 @@ import nodemailer from "nodemailer";
 import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
+
+// Dynamic import for Vite to avoid loading it on Vercel
+const createViteServer = !process.env.VERCEL 
+  ? (await import("vite")).createServer 
+  : null;
 
 // Supabase Client for backend
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -43,8 +47,11 @@ app.post("/api/pix/receive", async (req, res) => {
     const { amount, description, external_id, payer_name, payer_email, payer_cpf, payer_phone } = req.body;
 
     if (!process.env.AMPLOPAY_CLIENT_ID || !process.env.AMPLOPAY_CLIENT_SECRET) {
-      console.error("Missing Amplopay API credentials in environment variables.");
-      return res.status(500).json({ error: "Configuração da API incompleta." });
+      const missing = [];
+      if (!process.env.AMPLOPAY_CLIENT_ID) missing.push("AMPLOPAY_CLIENT_ID");
+      if (!process.env.AMPLOPAY_CLIENT_SECRET) missing.push("AMPLOPAY_CLIENT_SECRET");
+      console.error(`Missing Amplopay API credentials: ${missing.join(", ")}`);
+      return res.status(500).json({ error: "Configuração da API incompleta.", missing });
     }
 
     // Ensure amount is a number
@@ -55,8 +62,20 @@ app.post("/api/pix/receive", async (req, res) => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().split('T')[0];
 
-    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    // Detect App URL for callback
+    let appUrl = process.env.APP_URL;
+    if (!appUrl && process.env.VERCEL_URL) {
+      appUrl = `https://${process.env.VERCEL_URL}`;
+    }
+    if (!appUrl) {
+      appUrl = `http://localhost:${PORT}`;
+    }
+    
     const callbackUrl = `${appUrl}/api/pix/callback`;
+
+    const baseUrl = process.env.AMPLOPAY_BASE_URL || "https://app.amplopay.com/api/v1/gateway/pix/receive";
+    console.log("Generating PIX for:", payer_email, "Amount:", numericAmount);
+    console.log("Using Base URL:", baseUrl);
 
     const payload = {
       identifier: external_id,
@@ -80,9 +99,13 @@ app.post("/api/pix/receive", async (req, res) => {
     };
 
     console.log("Sending payload to Amplopay with callbackUrl:", callbackUrl);
+    console.log("Headers check:", {
+      "x-public-key": process.env.AMPLOPAY_CLIENT_ID ? "SET (starts with " + process.env.AMPLOPAY_CLIENT_ID.substring(0, 4) + ")" : "MISSING",
+      "x-secret-key": process.env.AMPLOPAY_CLIENT_SECRET ? "SET (starts with " + process.env.AMPLOPAY_CLIENT_SECRET.substring(0, 4) + ")" : "MISSING"
+    });
 
     const response = await axios.post(
-      process.env.AMPLOPAY_BASE_URL!,
+      baseUrl,
       payload,
       {
         headers: {
@@ -138,7 +161,7 @@ app.post("/api/pix/callback", async (req, res) => {
 });
 
 // Vite middleware for development (only if not on Vercel)
-if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL && createViteServer) {
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: "spa",

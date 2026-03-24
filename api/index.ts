@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
@@ -6,11 +7,6 @@ import nodemailer from "nodemailer";
 import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
-
-// Dynamic import for Vite to avoid loading it on Vercel
-const createViteServer = !process.env.VERCEL 
-  ? (await import("vite")).createServer 
-  : null;
 
 // Supabase Client for backend
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -62,15 +58,7 @@ app.post("/api/pix/receive", async (req, res) => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dueDate = tomorrow.toISOString().split('T')[0];
 
-    // Detect App URL for callback
-    let appUrl = process.env.APP_URL;
-    if (!appUrl && process.env.VERCEL_URL) {
-      appUrl = `https://${process.env.VERCEL_URL}`;
-    }
-    if (!appUrl) {
-      appUrl = `http://localhost:${PORT}`;
-    }
-    
+    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
     const callbackUrl = `${appUrl}/api/pix/callback`;
 
     const baseUrl = process.env.AMPLOPAY_BASE_URL || "https://app.amplopay.com/api/v1/gateway/pix/receive";
@@ -161,7 +149,7 @@ app.post("/api/pix/callback", async (req, res) => {
 });
 
 // Vite middleware for development (only if not on Vercel)
-if (process.env.NODE_ENV !== "production" && !process.env.VERCEL && createViteServer) {
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: "spa",

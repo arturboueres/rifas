@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { SupabaseStatus } from './components/SupabaseStatus';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 const RAFFLE_INFO: RaffleInfo = {
   title: "Rifa Kit de Carnes Premium",
@@ -44,58 +43,25 @@ export default function App() {
     setIsLoading(true);
     try {
       const totalAmount = quantity * RAFFLE_INFO.pricePerNumber;
-      const externalId = `rifa_${Date.now()}`;
-      console.log("Sending PIX request to server...");
       const response = await axios.post('/api/pix/receive', {
         amount: totalAmount,
         description: `Rifa Kit de Carnes - ${quantity} Cotas`,
-        external_id: externalId,
+        external_id: `rifa_${Date.now()}`,
         payer_name: formData.name,
         payer_email: formData.email,
         payer_cpf: formData.cpf,
         payer_phone: formData.phone
       });
 
-      console.log("Server response received:", response.data);
-
       if (response.data && response.data.pix) {
-        console.log("PIX generated successfully:", response.data.pix.code);
         setPixData({
           qrcode: response.data.pix.code, // 'code' is the PIX string
           copy_paste: response.data.pix.code
         });
-      } else {
-        console.error("Invalid response structure from server:", response.data);
-        alert("Resposta inválida do servidor. Verifique os logs.");
       }
-
-        // Save to Supabase if configured
-        if (isSupabaseConfigured) {
-          const { error: supabaseError } = await supabase
-            .from('raffle_orders')
-            .insert([
-              {
-                external_id: externalId,
-                payer_name: formData.name,
-                payer_email: formData.email,
-                payer_cpf: formData.cpf,
-                payer_phone: formData.phone,
-                quantity: quantity,
-                total_amount: totalAmount,
-                status: 'pending',
-                pix_code: response.data.pix.code
-              }
-            ]);
-          
-          if (supabaseError) {
-            console.error("Supabase save error:", supabaseError);
-          }
-        }
-      }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Payment error:", error);
-      const errorMsg = error.response?.data?.details || error.response?.data?.error || "Erro ao gerar PIX. Tente novamente.";
-      alert(errorMsg);
+      alert("Erro ao gerar PIX. Tente novamente.");
     } finally {
       setIsLoading(false);
     }

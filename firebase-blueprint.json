@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about the user participating in the raffle.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "cpf": { "type": "string", "description": "CPF for identification" },
+        "phone": { "type": "string", "description": "WhatsApp contact" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created" }
+      },
+      "required": ["name", "email", "cpf", "phone", "role", "createdAt"]
+    },
+    "Raffle": {
+      "title": "Raffle Details",
+      "description": "Details of the available raffle.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "pricePerNumber": { "type": "number" },
+        "prizeImage": { "type": "string" },
+        "totalNumbers": { "type": "integer" },
+        "soldNumbers": { "type": "integer" },
+        "takenNumbers": { "type": "array", "items": { "type": "integer" }, "description": "List of numbers already assigned" }
+      },
+      "required": ["title", "description", "pricePerNumber", "prizeImage", "totalNumbers", "soldNumbers", "takenNumbers"]
+    },
+    "Purchase": {
+      "title": "Purchase Record",
+      "description": "A record of a purchase attempt or successful purchase.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who made the purchase" },
+        "raffleId": { "type": "string", "description": "The ID of the raffle" },
+        "quantity": { "type": "integer", "description": "Number of cotas purchased" },
+        "totalAmount": { "type": "number", "description": "Total price paid" },
+        "status": { "type": "string", "enum": ["pending", "paid"], "description": "Payment status" },
+        "luckyNumbers": { "type": "array", "items": { "type": "integer" }, "description": "The assigned numbers" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the purchase was initiated" }
+      },
+      "required": ["userId", "raffleId", "quantity", "totalAmount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/raffles/{raffleId}": {
+      "schema": "Raffle",
+      "description": "Raffle details"
+    },
+    "/purchases/{purchaseId}": {
+      "schema": "Purchase",
+      "description": "Purchase records"
+    }
+  }
+}
